@@ -1,0 +1,26 @@
+* Set up git repo
+* Generate all possible game states
+   * Change id from order of moves to 
+   * Check to see if a state is a win/loss/tie, if so record accordingly for that node, add to a set of end state nodes, and continue
+   * Otherwise:
+     * Compare the id against the set 0..8, and generating one new move for each in that resulting difference
+     * Populate queue of (set?) of new ids as they get made
+     * Pop off the queue and continue from there
+* For each end state node, go back up the tree to the previous nodes and mark them as ancestors of a win/loss/tie
+* Prune the tree so we only chose descendants which lead to a victory (if possible) or a tie (if not)
+* Make an html file or anchor tag for each real node in the tree, with an interface
+
+Maybe
+* Rotational symmetry?
+
+0 1 2
+3 4 5
+6 7 8
+
+--> 
+
+6 3 0
+7 4 1
+8 5 2
+
+
