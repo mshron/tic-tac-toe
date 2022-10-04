@@ -51,11 +51,9 @@ class State:
         self.s = dict(enumerate(s.ljust(9,"_")))
         self.str = State.to_str(self.s)
         self.board = self.to_board()
-        self.victory = self.check_status()
+        self.status = self.check_status()
         self.next = 'X' if x_moves == o_moves else 'O'
-        self.leads_to_win = 0
-        self.leads_to_tie = 0
-        self.leads_to_loss = 0
+        self.leads_to = {'win': 0, 'loss': 0, 'tie': 0}
 
     def to_board(self):
         out = [["_" for j in range(3)] for i in range(3)]
@@ -73,9 +71,9 @@ class State:
         """
         return "".join([d[i] for i in range(9)])
 
-    def children(self):
+    def make_children(self):
         """
-        >>> for child in State("X").children(): print(child)
+        >>> for child in State("X").make_children(): print(child)
         XO_
         ___
         ___
@@ -109,9 +107,10 @@ class State:
         __O
         <BLANKLINE>
 
-        >>> for child in State("XXXOO_O").children(): print(child)
+        >>> for child in State("XXXOO_O").make_children(): print(child)
         """
-        if self.victory != "play":
+        # leaf node
+        if self.status != "play":
             return()
 
         for i in range(9):
@@ -235,7 +234,14 @@ class State:
 
 
 def make_tree():
+    """
+    Create the tree of all games
+
+    We have leaf nodes for all of the final board states, and then recursive
+    access to parents of each one
+    """
     nodes = {"": State()}
+    parents = defaultdict(list)
     children = defaultdict(list)
     leaves = set()
 
@@ -246,8 +252,9 @@ def make_tree():
         node = nodes[node_key]
         visited.add(node_key)
         i = 0
-        for child in node.children():
+        for child in node.make_children():
             s = child.str
+            parents[s].append(node_key)
             children[node_key].append(s)
             nodes[s] = child
             i+=1
@@ -256,19 +263,58 @@ def make_tree():
         to_visit = nodes.keys() - visited
 
     return({"nodes": nodes,
+            "parents": parents,
             "children": children,
             "leaves": leaves})
 
+def ancestors(nodes: dict, parents: dict, node_key: str):
+    to_visit = {node_key}
+    while to_visit != set():
+        n = to_visit.pop()
+        p = parents[n]
+        for i,p in enumerate(parents[n]):
+            to_visit.add(p)
+            yield(p)
+
+def perfect_play(nodes: dict, children: dict):
+    play = {}
+    for node_key in nodes:
+        if nodes[node_key].next == 'X': # skip player moves
+            play[node_key] = 'skip'
+            continue
+        best = None
+        second_best = None
+        for child_key in children[node_key]:
+            child = nodes[child_key]
+            if child.leads_to['loss'] > 0: # computer is trying to win, so player loses
+                best = child.str
+            elif child.leads_to['tie'] > 0:
+                second_best = child.str
+        if best != None:
+            play[node_key] = best
+        else:
+            play[node_key] = second_best
+    return play
+
+def backpass(nodes, leaves, parents):
+    """
+    Backwards pass to annotate all nodes
+    """
+    # why is this not deterministic?
+    for i, leaf_key in enumerate(leaves):
+        outcome = nodes[leaf_key].status
+        for p in ancestors(nodes, parents, leaf_key):
+            nodes[p].leads_to[outcome] += 1
+
 def main():
     res = make_tree()
-    for i, item in enumerate(res['children'].items()):
-        print(item)
-        if i == 10:
-            break
-    c = defaultdict(int)
-    for i, item in enumerate(res['leaves']):
-        c[res['nodes'][item].victory] += 1
-    print(c)
+    nodes = res['nodes']
+    parents = res['parents']
+    children = res['children']
+    leaves = res['leaves']
+
+    backpass(nodes, leaves, parents)
+    play = perfect_play(nodes, children)
 
 if __name__ == "__main__":
     main()
