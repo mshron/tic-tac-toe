@@ -237,8 +237,9 @@ def make_tree():
     """
     Create the tree of all games
 
-    We have leaf nodes for all of the final board states, and then recursive
-    access to parents of each one
+    Returns `nodes` which has all of the node data, plus `leaves`
+    which covers all of the final leaves, and `parents` and `children`
+    which are self-explanatory. Everything keys off of the string.
     """
     nodes = {"": State()}
     parents = defaultdict(list)
@@ -276,35 +277,76 @@ def ancestors(nodes: dict, parents: dict, node_key: str):
             to_visit.add(p)
             yield(p)
 
-def perfect_play(nodes: dict, children: dict):
-    play = {}
-    for node_key in nodes:
-        if nodes[node_key].next == 'X': # skip player moves
-            play[node_key] = 'skip'
-            continue
-        best = None
-        second_best = None
-        for child_key in children[node_key]:
-            child = nodes[child_key]
-            if child.leads_to['loss'] > 0: # computer is trying to win, so player loses
-                best = child.str
-            elif child.leads_to['tie'] > 0:
-                second_best = child.str
-        if best != None:
-            play[node_key] = best
-        else:
-            play[node_key] = second_best
-    return play
+def minimax(nodes: dict, children: dict, leaves: set, parents: dict):
+    """
+    See https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-3-tic-tac-toe-ai-finding-optimal-move/ for good discussion of minimax strategy.
 
-def backpass(nodes, leaves, parents):
+    Start from the end, work backwards to recusively identify the right move
+
+    The correct move is one which would win against every possible player move.
+
+    A relevant leaf is either a "loss" for the player, which isa an O move, or a
+    tie, which is an X move (since X goes first and there are 9 spaces max).
+
+    For a loss, consider the following:
+
+    OX_
+    XO_
+    X_O
+
+    its parents are
+
+    OX_
+    XO_
+    X__
+
+    _X_
+    XO_
+    X_O
+
+    OX_
+    X__
+    X_O
+
+    and for all of those, the corret move is the leaf node.
+
+    Ties will have one parent (which was an O move) and two grandparents (which
+    were X moves), such as in the following example:
+
+    XOX
+    OOX
+    XXO
+
+    O needs to play B, since A would allow X to win.
+
+    XOX    XO_
+    OOX <- OOX
+    XXO    XXO
+    tie    p
+
+    XO_
+    OOX
+    XX_
+    gp
+
     """
-    Backwards pass to annotate all nodes
-    """
-    # why is this not deterministic?
-    for i, leaf_key in enumerate(leaves):
-        outcome = nodes[leaf_key].status
-        for p in ancestors(nodes, parents, leaf_key):
-            nodes[p].leads_to[outcome] += 1
+    play = {}
+    to_visit = leaves.copy() # start from the end
+    while len(to_visit) > 0:
+        node_key = to_visit.pop()
+        node = nodes[node_key]
+        # nb this is loss for player; win for computer
+        if node.status == 'loss':
+            for parent_key in parents[node_key]:
+                play[parent_key] = node_key
+                to_visit.add(parent_key)
+        elif node.status == 'tie': # move for tie only if no other choice
+            for parent_key in parents[node_key]: # should only be one
+                if play.get(parent_key) == None: # no other winning move
+                    play[parent_key] = node_key
+                    to_visit.add(parent_key)
+        elif node.status == 'play':
+    return play
 
 def main():
     res = make_tree()
@@ -313,8 +355,8 @@ def main():
     children = res['children']
     leaves = res['leaves']
 
-    backpass(nodes, leaves, parents)
-    play = perfect_play(nodes, children)
+    play = minimax(nodes, children, leaves, parents)
+    print(play)
 
 if __name__ == "__main__":
     main()
