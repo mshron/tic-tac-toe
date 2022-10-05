@@ -334,6 +334,11 @@ def minimax(nodes: dict, children: dict, leaves: set, parents: dict):
             to_visit[p] = None
 
 def make_htmls(nodes: dict, children: dict):
+    """
+    Write all possible game states to html files
+
+    FIXME to use the output from the minimax optimization to play for one player
+    """
     for node_str, node in nodes.items():
         cs = dict(children.get(node_str, []))
         out = "<!DOCTYPE html><html><body>\n"
