@@ -1,4 +1,9 @@
 #!/bin/python
+"""
+Generate all possible tic-tac-toe board states, and write them out to (linked) html files.
+
+Determine optimal play for second player ("O") and suggest moves accordingly.
+"""
 from collections import defaultdict, OrderedDict
 
 class State:
@@ -303,6 +308,7 @@ def make_tree():
             "parents": parents,
             "children": children,
             "leaves": leaves})
+
 def minimax(nodes: dict, children: dict, leaves: set, parents: dict):
     """
     Start from the end, work backwards to recusively identify the right moves for each player
