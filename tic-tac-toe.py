@@ -1,5 +1,5 @@
 #!/bin/python
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 class State:
     def __init__(self, s: str = ""):
@@ -32,11 +32,20 @@ class State:
         ...
         ValueError: too many moves
 
-        >>> State("X").next
+        >>> State("X").player
         'O'
 
-        >>> State().next
+        >>> State().player
         'X'
+
+        >>> State().depth
+        0
+
+        >>> State('X').depth
+        1
+
+        >>> State('XXOXXOOOX').depth
+        9
 
         """
         if len(s) > 9:
@@ -50,10 +59,23 @@ class State:
             raise ValueError("illegal board state")
         self.s = dict(enumerate(s.ljust(9,"_")))
         self.str = State.to_str(self.s)
+        self.depth = 9 - self.str.count('_')
         self.board = self.to_board()
         self.status = self.check_status()
-        self.next = 'X' if x_moves == o_moves else 'O'
-        self.leads_to = {'win': 0, 'loss': 0, 'tie': 0}
+        self.player = 'X' if x_moves == o_moves else 'O'
+        self.set_default_value()
+
+    def set_default_value(self):
+        if self.status == 'tie':
+            self.value = 0
+        elif self.status == 'win':
+            self.value = 10 - self.depth
+        elif self.status == 'loss':
+            self.value = self.depth - 10
+        elif self.player == 'X':
+            self.value = -999
+        else:
+            self.value = 999
 
     def to_board(self):
         out = [["_" for j in range(3)] for i in range(3)]
@@ -107,6 +129,7 @@ class State:
         __O
         <BLANKLINE>
 
+        This should be empty, since it's a leaf node (X wins)
         >>> for child in State("XXXOO_O").make_children(): print(child)
         """
         # leaf node
@@ -116,8 +139,8 @@ class State:
         for i in range(9):
             if self.s[i] == '_':
                 ss = self.s.copy()
-                ss[i] = self.next
-                yield State(State.to_str(ss))
+                ss[i] = self.player
+                yield (i, State(State.to_str(ss)))
 
     def __str__(self):
         """
@@ -232,16 +255,17 @@ class State:
         else:
             return "play"
 
-
 def make_tree():
     """
     Create the tree of all games
 
     Returns `nodes` which has all of the node data, plus `leaves`
-    which covers all of the final leaves, and `parents` and `children`
-    which are self-explanatory. Everything keys off of the string.
+    which covers all of the final leaves, `children` which is a tuple
+    of (move, state), and `parents` which is self-explanatory.
+
+    Everything keys off of the string.
     """
-    nodes = {"": State()}
+    nodes = {"_________": State()}
     parents = defaultdict(list)
     children = defaultdict(list)
     leaves = set()
@@ -253,12 +277,12 @@ def make_tree():
         node = nodes[node_key]
         visited.add(node_key)
         i = 0
-        for child in node.make_children():
+        for move, child in node.make_children():
             s = child.str
             parents[s].append(node_key)
-            children[node_key].append(s)
+            children[node_key].append((move, s))
             nodes[s] = child
-            i+=1
+            i += 1
         if i == 0: # no children; win/loss/tie node
             leaves.add(node_key)
         to_visit = nodes.keys() - visited
@@ -267,86 +291,48 @@ def make_tree():
             "parents": parents,
             "children": children,
             "leaves": leaves})
-
-def ancestors(nodes: dict, parents: dict, node_key: str):
-    to_visit = {node_key}
-    while to_visit != set():
-        n = to_visit.pop()
-        p = parents[n]
-        for i,p in enumerate(parents[n]):
-            to_visit.add(p)
-            yield(p)
-
 def minimax(nodes: dict, children: dict, leaves: set, parents: dict):
     """
-    See https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-3-tic-tac-toe-ai-finding-optimal-move/ for good discussion of minimax strategy.
+    Start from the end, work backwards to recusively identify the right moves for each player
 
-    Start from the end, work backwards to recusively identify the right move
-
-    The correct move is one which would win against every possible player move.
-
-    A relevant leaf is either a "loss" for the player, which isa an O move, or a
-    tie, which is an X move (since X goes first and there are 9 spaces max).
-
-    For a loss, consider the following:
-
-    OX_
-    XO_
-    X_O
-
-    its parents are
-
-    OX_
-    XO_
-    X__
-
-    _X_
-    XO_
-    X_O
-
-    OX_
-    X__
-    X_O
-
-    and for all of those, the corret move is the leaf node.
-
-    Ties will have one parent (which was an O move) and two grandparents (which
-    were X moves), such as in the following example:
-
-    XOX
-    OOX
-    XXO
-
-    O needs to play B, since A would allow X to win.
-
-    XOX    XO_
-    OOX <- OOX
-    XXO    XXO
-    tie    p
-
-    XO_
-    OOX
-    XX_
-    gp
+    See https://www.neverstopbuilding.com/blog/minimax for good discussion of minimax strategy,
+    and https://www.youtube.com/watch?v=STjW3eH0Cik for a good MIT OCW video on it.
 
     """
-    play = {}
-    to_visit = leaves.copy() # start from the end
+    to_visit = OrderedDict()
+    for leaf in leaves:
+        for p in parents[leaf]:
+            to_visit[p] = None
+
     while len(to_visit) > 0:
-        node_key = to_visit.pop()
+        node_key = to_visit.popitem(last=False)[0] # FIFO
         node = nodes[node_key]
-        # nb this is loss for player; win for computer
-        if node.status == 'loss':
-            for parent_key in parents[node_key]:
-                play[parent_key] = node_key
-                to_visit.add(parent_key)
-        elif node.status == 'tie': # move for tie only if no other choice
-            for parent_key in parents[node_key]: # should only be one
-                if play.get(parent_key) == None: # no other winning move
-                    play[parent_key] = node_key
-                    to_visit.add(parent_key)
-        elif node.status == 'play':
-    return play
+        if node.player == 'X':
+            node.value = max([nodes[c[1]].value for c in children[node_key]])
+        else: # minimize
+            node.value = min([nodes[c[1]].value for c in children[node_key]])
+
+        for p in parents[node_key]:
+            to_visit[p] = None
+
+def make_htmls(nodes: dict, children: dict):
+    for node_str, node in nodes.items():
+        cs = dict(children.get(node_str, []))
+        out = "<html><body><style>body{font-family: monospace;}</style>\n"
+        for i in range(9):
+            n = node.s[i]
+            v = cs.get(i)
+            if v == None:
+                out += f'{n}|'
+            else:
+                out += f'<a href="{v}.html">_</a>|'
+            if ((i+1) % 3 == 0):
+                out = out[:-1] + "</br>\n"
+
+        out += "</body></html>"
+        with open(f'out/{node_str}.html', 'wt') as f:
+            f.write(out)
+
 
 def main():
     res = make_tree()
@@ -355,8 +341,9 @@ def main():
     children = res['children']
     leaves = res['leaves']
 
-    play = minimax(nodes, children, leaves, parents)
-    print(play)
+    minimax(nodes, children, leaves, parents)
+
+    make_htmls(nodes, children)
 
 if __name__ == "__main__":
     main()
