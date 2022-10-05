@@ -1,7 +1,5 @@
-* Why aren't all the win/loss counts symmetric?
-* For each end state node, go back up the tree to the previous nodes and mark them as ancestors of a win/loss/tie
-* Prune the tree so we only chose descendants which lead to a victory (if possible) or a tie (if not)
-* Make an html file or anchor tag for each real node in the tree, with an interface
+* Change html output to play the computer side
+* Why isn't the play perfect?
 
 Maybe
 * Rotational symmetry?
