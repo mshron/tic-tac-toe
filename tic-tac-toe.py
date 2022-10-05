@@ -225,6 +225,14 @@ class State:
         >>> State("XO_XO_X").check_status()
         'win'
 
+        Win in the middle
+        >>> State("OO_XXXO__").check_status()
+        'win'
+
+        Lose in the middle
+        >>> State("XX_OOOXX_").check_status()
+        'loss'
+
         Lose down the bottom
         >>> State("__XXX_OOO").check_status()
         'loss'
@@ -245,6 +253,10 @@ class State:
             if r[0] == ['X','X','X']:
                 return "win"
             elif r[0] == ['O','O','O']:
+                return "loss"
+            elif r[1] == ['X', 'X', 'X']:
+                return "win"
+            elif r[1] == ['O', 'O', 'O']:
                 return "loss"
             elif r[0][0] == "X" and r[1][1] == "X" and r[2][2] == "X":
                 return "win"
@@ -318,7 +330,13 @@ def minimax(nodes: dict, children: dict, leaves: set, parents: dict):
 def make_htmls(nodes: dict, children: dict):
     for node_str, node in nodes.items():
         cs = dict(children.get(node_str, []))
-        out = "<html><body><style>body{font-family: monospace;}</style>\n"
+        out = "<!DOCTYPE html><html><body>\n"
+        out += """<style>
+            div {font-family: monospace; width: 20%; margin: auto;
+            padding: 10em; font-size: 200%;}
+            a:link { text-decoration: none!important; }
+            </style>\n"""
+        out += "<div>"
         for i in range(9):
             n = node.s[i]
             v = cs.get(i)
@@ -329,10 +347,12 @@ def make_htmls(nodes: dict, children: dict):
             if ((i+1) % 3 == 0):
                 out = out[:-1] + "</br>\n"
 
-        out += "</body></html>"
+        out += "</br></br><a href='index.html'>(♻️)</a>"
+        out += "</div></body></html>"
+        if node_str == "_________":
+            node_str = "index"
         with open(f'out/{node_str}.html', 'wt') as f:
             f.write(out)
-
 
 def main():
     res = make_tree()
