@@ -337,7 +337,8 @@ def make_htmls(nodes: dict, children: dict):
     """
     Write all possible game states to html files
 
-    FIXME to use the output from the minimax optimization to play for one player
+    TODO use the output from the minimax optimization to play for one player
+    TODO be able to switch between two-human and one-human mode
     """
     for node_str, node in nodes.items():
         cs = dict(children.get(node_str, []))
@@ -358,7 +359,11 @@ def make_htmls(nodes: dict, children: dict):
             if ((i+1) % 3 == 0):
                 out = out[:-1] + "</br>\n"
 
-        out += "</br></br><a href='index.html'>(♻️)</a>"
+        out += "</br></br><a href='index.html'>(♻️  Start again?)</a>"
+        if node.status == 'win':
+            out += "</br></br>X wins!"
+        elif node.status == 'loss':
+            out += "</br></br>O wins!"
         out += "</div></body></html>"
         if node_str == "_________":
             node_str = "index"
